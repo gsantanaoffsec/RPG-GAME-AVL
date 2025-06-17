@@ -1,120 +1,120 @@
-# Classe para representar um nó da árvore AVL
-class Node:
-    def __init__(self, key, value):
+from __future__ import annotations
+from typing import Any, Generator, Tuple, Optional
+
+class AVLNode:
+    def __init__(self, key: Any, value: Any = None):
         self.key = key
         self.value = value
         self.height = 1
-        self.left = None
-        self.right = None
+        self.left: Optional[AVLNode] = None
+        self.right: Optional[AVLNode] = None
 
-# Classe principal da árvore AVL
+    def __repr__(self):
+        return f"AVLNode({self.key}:h={self.height})"
+
 class AVLTree:
     def __init__(self):
-        self.root = None
+        self.root: Optional[AVLNode] = None
 
-    # Função pública de inserção
-    def insert(self, key, value):
+    def insert(self, key: Any, value: Any = None) -> None:
         self.root = self._insert(self.root, key, value)
 
-    # Função recursiva para inserção
-    def _insert(self, node, key, value):
-        if not node:
-            return Node(key, value)
-        elif key < node.key:
-            node.left = self._insert(node.left, key, value)
-        else:
-            node.right = self._insert(node.right, key, value)
-
-        # Atualiza altura e reequilibra
-        node.height = 1 + max(self._get_height(node.left), self._get_height(node.right))
-        return self._balance(node)
-
-    # Busca um valor pela chave
-    def search(self, key):
-        node = self.root
-        while node:
-            if key == node.key:
-                return node.value
-            elif key < node.key:
-                node = node.left
-            else:
-                node = node.right
-        return None
-
-    # Remove um nó pela chave
-    def remove(self, key):
+    def remove(self, key: Any) -> None:
         self.root = self._remove(self.root, key)
 
-    def _remove(self, node, key):
-        if not node:
+    def search(self, key: Any) -> Any | None:
+        node = self._search(self.root, key)
+        return node.value if node else None
+
+    def inorder(self, reverse: bool = False) -> Generator[Tuple[Any, Any], None, None]:
+        yield from self._inorder(self.root, reverse)
+
+    def _insert(self, node: Optional[AVLNode], key: Any, value: Any) -> AVLNode:
+        if node is None:
+            return AVLNode(key, value)
+        if key < node.key:
+            node.left = self._insert(node.left, key, value)
+        elif key > node.key:
+            node.right = self._insert(node.right, key, value)
+        else:  
+            node.value = value
             return node
-        elif key < node.key:
+        return self._rebalance(node)
+
+    def _remove(self, node: Optional[AVLNode], key: Any) -> Optional[AVLNode]:
+        if node is None:
+            return None
+        if key < node.key:
             node.left = self._remove(node.left, key)
         elif key > node.key:
             node.right = self._remove(node.right, key)
-        else:
-            if not node.left:
+        else:  
+            if node.left is None:
                 return node.right
-            elif not node.right:
+            if node.right is None:
                 return node.left
-            temp = self._get_min_value_node(node.right)
-            node.key, node.value = temp.key, temp.value
-            node.right = self._remove(node.right, temp.key)
+            succ = self._min_node(node.right)
+            node.key, node.value = succ.key, succ.value
+            node.right = self._remove(node.right, succ.key)
+        return self._rebalance(node)
 
-        node.height = 1 + max(self._get_height(node.left), self._get_height(node.right))
-        return self._balance(node)
+    def _search(self, node: Optional[AVLNode], key: Any) -> Optional[AVLNode]:
+        while node:
+            if key < node.key:
+                node = node.left
+            elif key > node.key:
+                node = node.right
+            else:
+                return node
+        return None
 
-    # Encontra o menor valor à direita
-    def _get_min_value_node(self, node):
-        while node.left:
-            node = node.left
-        return node
+    def _inorder(self, node: Optional[AVLNode], reverse: bool = False):
+        if node is None:
+            return
+        first, second = (node.right, node.left) if reverse else (node.left, node.right)
+        yield from self._inorder(first, reverse)
+        yield (node.key, node.value)
+        yield from self._inorder(second, reverse)
 
-    def _get_height(self, node):
-        return node.height if node else 0
-
-    def _get_balance(self, node):
-        return self._get_height(node.left) - self._get_height(node.right) if node else 0
-
-    def _balance(self, node):
-        balance = self._get_balance(node)
+    def _rebalance(self, node: AVLNode) -> AVLNode:
+        self._update_height(node)
+        balance = self._balance_factor(node)
         if balance > 1:
-            if self._get_balance(node.left) < 0:
+            if self._balance_factor(node.left) < 0:
                 node.left = self._rotate_left(node.left)
             return self._rotate_right(node)
         if balance < -1:
-            if self._get_balance(node.right) > 0:
+            if self._balance_factor(node.right) > 0:
                 node.right = self._rotate_right(node.right)
             return self._rotate_left(node)
         return node
 
-    # Rotações
-    def _rotate_left(self, z):
+    def _rotate_left(self, z: AVLNode) -> AVLNode:
         y = z.right
-        T2 = y.left
+        z.right = y.left
         y.left = z
-        z.right = T2
-        z.height = 1 + max(self._get_height(z.left), self._get_height(z.right))
-        y.height = 1 + max(self._get_height(y.left), self._get_height(y.right))
+        self._update_height(z)
+        self._update_height(y)
         return y
 
-    def _rotate_right(self, z):
+    def _rotate_right(self, z: AVLNode) -> AVLNode:
         y = z.left
-        T3 = y.right
+        z.left = y.right
         y.right = z
-        z.left = T3
-        z.height = 1 + max(self._get_height(z.left), self._get_height(z.right))
-        y.height = 1 + max(self._get_height(y.left), self._get_height(y.right))
+        self._update_height(z)
+        self._update_height(y)
         return y
 
-    # Retorna os dados da árvore em ordem
-    def inorder(self):
-        result = []
-        self._inorder(self.root, result)
-        return result
+    def _height(self, node: Optional[AVLNode]) -> int:
+        return node.height if node else 0
 
-    def _inorder(self, node, result):
-        if node:
-            self._inorder(node.left, result)
-            result.append((node.key, node.value))
-            self._inorder(node.right, result)
+    def _update_height(self, node: AVLNode):
+        node.height = 1 + max(self._height(node.left), self._height(node.right))
+
+    def _balance_factor(self, node: AVLNode) -> int:
+        return self._height(node.left) - self._height(node.right)
+
+    def _min_node(self, node: AVLNode) -> AVLNode:
+        while node.left:
+            node = node.left
+        return node
